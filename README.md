@@ -34,3 +34,9 @@ COLRW is an asm68k macro that I use to improve readability of exported
 palettes.
 With it you can see palette RGB values (0 - 7) in the code, instead of
 color components packed into hexadecimal words.
+
+### To do
+
+ - Palette optimization: combine repeating colors into one
+
+ - Tile optimization: add an option to skip repeating tiles
