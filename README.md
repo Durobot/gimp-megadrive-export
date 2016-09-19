@@ -17,7 +17,7 @@ as 8x8 tiles for Sega Genesis/Megadrive as asm68k source files.
 
  - Make sure your image is indexed, with no more than 15 colors (may
    have transparency), use Image > Mode > Indexed.. to convert;
-   
+
  - Go to File > Export As.., in "All export images" select "Asm68k
    files (*.asm)", click "Select File Type (By Extension)", then
    "Asm68k files";
