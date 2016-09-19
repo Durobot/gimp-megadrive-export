@@ -68,7 +68,7 @@ def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_ma
         gimp.quit()
 
     if pdb.gimp_drawable_type(drawable) not in (INDEXED_IMAGE, INDEXEDA_IMAGE):
-        gimp.pdb.gimp_message("This image mode is not indexed, use Image > Mode > Indexed..")
+        gimp.pdb.gimp_message("This image is not in indexed mode, use Image > Mode > Indexed..")
         gimp.quit()
 
     colmap = pdb.gimp_image_get_colormap(image)
@@ -216,6 +216,7 @@ register("file-asm-save",
          "<Save>/Asm68k files",
          "*",  # All image types, including RGB and grayscale - we tell the user what they have to do to convert the image to indexed
          [
+             (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # I don't know why, but the first parameter is ignored
              (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # So I have added the first parameter to actually be able to use this one
          ],
          [],
