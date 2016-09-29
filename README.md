@@ -27,7 +27,7 @@ as 8x8 tiles for Sega Genesis/Megadrive as asm68k source files.
  - Click "Export";
 
  - Click "Ok" in file-asm-save dialog box. You can choose whether to use
-   COLRW macro (see below) or not;
+   COLRW macro (see below) or not, also choose export order of the tiles;
 
  - Done. If one or both of your image's dimensions is not a multiple of
    8, the plugin will show a dialog box informing of unexported pixels.
