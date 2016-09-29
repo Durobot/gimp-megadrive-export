@@ -171,7 +171,7 @@ def export_macro(out_file, newline):
 
     out_file.write("; Pack RGB data like so: ----bbb-ggg-rrr-" + newline)
     out_file.write("COLRW	MACRO		; Define word constant, representing a palette color entry (R, G, B must be within 0-7 range)" + newline)
-    out_file.write("	IFNE narg-3	; narg minus 3 != 0" + newline)
+    out_file.write("	IFNE narg-3		; narg minus 3 != 0" + newline)
     out_file.write("	FAIL COLRW needs three arguments:  COLRW R,G,B" + newline)
     out_file.write("	ENDC" + newline)
     out_file.write("	; Spaces between expression elements ruin everything" + newline)
