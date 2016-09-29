@@ -42,7 +42,7 @@ THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  - Click "Export";
 
  - Click "Ok" in file-asm-save dialog box. You can choose whether to use
-   COLRW macro (see below) or not;
+   COLRW macro (see below) or not, also choose export order of the tiles;
 
  - Done. If one or both of your image's dimensions is not a multiple of
    8, the plugin will show a dialog box informing of unexported pixels.
@@ -57,7 +57,7 @@ from gimpfu import *
 import platform
 
 
-def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_macro):
+def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_macro, tile_export_order):
     gimp_tile_width = gimp.tile_width()
     if gimp_tile_width % 8 != 0 or gimp_tile_width <= 0:
         gimp.pdb.gimp_message("GIMP reports tile width = {}, which is not a multiple of 8.\n"
@@ -104,16 +104,28 @@ def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_ma
     sega_tile_rows = int(drawable.height / 8)  # We have made already sure that image height is a multipe of 8
     out_file.write("	; --- Tiles ---" + newline)
     #
-    for sega_tile_col_idx in range(sega_tile_cols):
-        start_x = sega_tile_col_idx * 8
-        gimp_tile_col = start_x / gimp_tile_width
+    if tile_export_order == "col":  # Tile export order: column-by-column
+        for sega_tile_col_idx in range(sega_tile_cols):
+            start_x = sega_tile_col_idx * 8
+            gimp_tile_col = start_x / gimp_tile_width
+            for sega_tile_row_idx in range(sega_tile_rows):
+                start_y = sega_tile_row_idx * 8
+                gimp_tile_row = start_y / gimp_tile_height
+                export_sega_tile(out_file, drawable.get_tile(shadow=False, row=gimp_tile_row, col=gimp_tile_col),
+                                 start_x - gimp_tile_col * gimp_tile_width, start_y - gimp_tile_row * gimp_tile_height,
+                                 drawable.has_alpha, "(col {}, row {})".format(sega_tile_col_idx, sega_tile_row_idx), newline)
+                out_file.write(newline)
+    else:  # Tile export order: row-by-row
         for sega_tile_row_idx in range(sega_tile_rows):
             start_y = sega_tile_row_idx * 8
             gimp_tile_row = start_y / gimp_tile_height
-            export_sega_tile(out_file, drawable.get_tile(shadow=False, row=gimp_tile_row, col=gimp_tile_col),
-                             start_x - gimp_tile_col * gimp_tile_width, start_y - gimp_tile_row * gimp_tile_height,
-                             drawable.has_alpha, "(col {}, row {})".format(sega_tile_col_idx, sega_tile_row_idx), newline)
-            out_file.write(newline)
+            for sega_tile_col_idx in range(sega_tile_cols):
+                start_x = sega_tile_col_idx * 8
+                gimp_tile_col = start_x / gimp_tile_width
+                export_sega_tile(out_file, drawable.get_tile(shadow=False, row=gimp_tile_row, col=gimp_tile_col),
+                                 start_x - gimp_tile_col * gimp_tile_width, start_y - gimp_tile_row * gimp_tile_height,
+                                 drawable.has_alpha, "(col {}, row {})".format(sega_tile_col_idx, sega_tile_row_idx), newline)
+                out_file.write(newline)
     out_file.close()
 
     # -----------------------------------------
@@ -158,7 +170,7 @@ def export_macro(out_file, newline):
     out_file.write("* ifne 	  ; print error message" + newline + newline)
 
     out_file.write("; Pack RGB data like so: ----bbb-ggg-rrr-" + newline)
-    out_file.write("COLRW	MACRO       ; Define word constant, representing a palette color entry (R, G, B must be within 0-7 range)" + newline)
+    out_file.write("COLRW	MACRO		; Define word constant, representing a palette color entry (R, G, B must be within 0-7 range)" + newline)
     out_file.write("	IFNE narg-3	; narg minus 3 != 0" + newline)
     out_file.write("	FAIL COLRW needs three arguments:  COLRW R,G,B" + newline)
     out_file.write("	ENDC" + newline)
@@ -214,12 +226,13 @@ register("file-asm-save",
          "Your image must be in indexed format and have not more than 15 colors (may have transparency).",
          "Alexei Kireev",
          "Copyright 2016 Alexei Kireev",
-         "2016-09-19",
+         "2016-09-29",
          "<Save>/Asm68k files",
          "*",  # All image types, including RGB and grayscale - we tell the user what they have to do to convert the image to indexed
          [
              (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # I don't know why, but the first parameter is ignored
              (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # So I have added the first parameter to actually be able to use this one
+             (PF_RADIO, "tile_export_order", "Tile export order:", "col", (("Column by column", "col"), ("Row by row", "row")))
          ],
          [],
          export_to_asm,
