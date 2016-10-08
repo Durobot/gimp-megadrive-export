@@ -23,10 +23,10 @@ THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 ### Installation
 
- - Copy **gimp-megadrive-export.py** to your Gimp plugins folder, e.g. 
+ - Copy **gimp_megadrive_export.py** to your Gimp plugins folder, e.g. 
 ~/.gimp-2.8/plug-ins/
 
- - (Skip if you're using Windows) Change file permissions by adding executable bit: ``chmod +x gimp-megadrive-export.py``
+ - (Skip if you're using Windows) Change file permissions by adding executable bit: ``chmod +x gimp_megadrive_export.py``
 
  - Restart Gimp
 
