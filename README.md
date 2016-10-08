@@ -27,7 +27,8 @@ as 8x8 tiles for Sega Genesis/Megadrive as asm68k source files.
  - Click "Export";
 
  - Click "Ok" in file-asm-save dialog box. You can choose whether to use
-   COLRW macro (see below) or not, also choose export order of the tiles;
+   COLRW macro (see below) or not, whether to merge duplicate palette colors,
+   and choose export order of the tiles;
 
  - Done. If one or both of your image's dimensions is not a multiple of
    8, the plugin will show a dialog box informing of unexported pixels.
@@ -38,7 +39,5 @@ With it you can see palette RGB values (0 - 7) in the code, instead of
 color components packed into hexadecimal words.
 
 ### To do
-
- - Palette optimization: combine repeating colors into one
 
  - Tile optimization: add an option to skip repeating tiles

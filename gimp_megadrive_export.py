@@ -42,7 +42,8 @@ THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  - Click "Export";
 
  - Click "Ok" in file-asm-save dialog box. You can choose whether to use
-   COLRW macro (see below) or not, also choose export order of the tiles;
+   COLRW macro (see below) or not, whether to merge duplicate palette colors,
+   and choose export order of the tiles;
 
  - Done. If one or both of your image's dimensions is not a multiple of
    8, the plugin will show a dialog box informing of unexported pixels.
@@ -53,11 +54,11 @@ With it you can see palette RGB values (0 - 7) in the code, instead of
 color components packed into hexadecimal words.
 """
 
-from gimpfu import *
 import platform
+from gimpfu import *
 
 
-def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_macro, tile_export_order):
+def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_macro, merge_dup_colors, tile_export_order):
     gimp_tile_width = gimp.tile_width()
     if gimp_tile_width % 8 != 0 or gimp_tile_width <= 0:
         gimp.pdb.gimp_message("GIMP reports tile width = {}, which is not a multiple of 8.\n"
@@ -97,8 +98,8 @@ def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_ma
     # -----------------------------------------
 
     out_file = open(filename, "w")
-    export_palette(out_file, colmap, use_palette_macro, newline)
-    out_file.write(newline + newline)
+    color_remap = export_palette(out_file, colmap, use_palette_macro, merge_dup_colors, newline)
+    out_file.write(newline)
 
     sega_tile_cols = int(drawable.width / 8)  # We have already made sure that image width is a multipe of 8
     sega_tile_rows = int(drawable.height / 8)  # We have made already sure that image height is a multipe of 8
@@ -113,7 +114,8 @@ def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_ma
                 gimp_tile_row = start_y / gimp_tile_height
                 export_sega_tile(out_file, drawable.get_tile(shadow=False, row=gimp_tile_row, col=gimp_tile_col),
                                  start_x - gimp_tile_col * gimp_tile_width, start_y - gimp_tile_row * gimp_tile_height,
-                                 drawable.has_alpha, "(col {}, row {})".format(sega_tile_col_idx, sega_tile_row_idx), newline)
+                                 drawable.has_alpha, color_remap,
+                                 "(col {}, row {})".format(sega_tile_col_idx, sega_tile_row_idx), newline)
                 out_file.write(newline)
     else:  # Tile export order: row-by-row
         for sega_tile_row_idx in range(sega_tile_rows):
@@ -124,7 +126,8 @@ def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_ma
                 gimp_tile_col = start_x / gimp_tile_width
                 export_sega_tile(out_file, drawable.get_tile(shadow=False, row=gimp_tile_row, col=gimp_tile_col),
                                  start_x - gimp_tile_col * gimp_tile_width, start_y - gimp_tile_row * gimp_tile_height,
-                                 drawable.has_alpha, "(col {}, row {})".format(sega_tile_col_idx, sega_tile_row_idx), newline)
+                                 drawable.has_alpha, color_remap,
+                                 "(col {}, row {})".format(sega_tile_col_idx, sega_tile_row_idx), newline)
                 out_file.write(newline)
     out_file.close()
 
@@ -134,7 +137,13 @@ def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_ma
         gimp.pdb.gimp_message(message)
 
 
-def export_palette(out_file, colmap, use_palette_macro, newline):
+def export_palette(out_file, colmap, use_palette_macro, merge_dup_colors, newline):
+    """
+    Write palette from colmap to out_file. Add definition of / use COLRW macro if use_palette_macro == True.
+    Remove duplicate colors and return color removal map (dictionary) if merge_dup_colors == True,
+    otherwise return empty map (dictionary).
+    newline is platform-dependent line break symbol(s) for out_file.
+    """
     def rgb_elem_to_sega(col_elem):
         # Map 8-bit range of a color element (R, G or B) to 3-bit Sega range (values = 0..7)
         return int(round(float(col_elem) / 255.0 * 7.0))
@@ -145,20 +154,30 @@ def export_palette(out_file, colmap, use_palette_macro, newline):
 
     out_file.write("	; --- Palette ---" + newline)
     colors = colmap[1]
-    out_file.write("	dc.w	$0000	;	Color 0 is transparent (so actual value doesn't matter)" + newline)
-    for i in range(0, colmap[0] - 2, 3):
-        if use_palette_macro:
-            out_file.write("	COLRW	{},{},{}	;	Color {}".format(rgb_elem_to_sega(colors[i]),
-                                                                          rgb_elem_to_sega(colors[i + 1]),
-                                                                          rgb_elem_to_sega(colors[i + 2]),
-                                                                          hex((i + 3) / 3)[2:]))
+    out_file.write("	dc.w	$0000	;	Color $0 is transparent (so the actual value doesn't matter)" + newline)
+
+    palette = []
+    color_remap = {}  # Maps source color id to destination color id for merging duplicate colors
+    gimp_color_idx = 0
+    for i in xrange(0, colmap[0] - 2, 3):
+        pal_elem = (rgb_elem_to_sega(colors[i]), rgb_elem_to_sega(colors[i + 1]), rgb_elem_to_sega(colors[i + 2]))
+        if merge_dup_colors and pal_elem in palette:
+            color_remap[gimp_color_idx] = palette.index(pal_elem)  # New element - tuple to remap current color to the found matching color
         else:
-            palette_entry = (rgb_elem_to_sega(colors[i]) << 1) | (rgb_elem_to_sega(colors[i + 1]) << 5) | \
-                (rgb_elem_to_sega(colors[i + 2]) << 9)  # ----bbb-ggg-rrr-
-            out_file.write("	dc.w	${}	;	Color {}".format(hex(palette_entry)[2:].zfill(4),
-                                                                 hex((i + 3) / 3)[2:]))
-        if i < colmap[0] - 3:
-            out_file.write(newline)
+            palette.append(pal_elem)
+        gimp_color_idx += 1
+
+    for i, pal_elem in enumerate(palette):
+        if use_palette_macro:
+            out_file.write("	COLRW	{},{},{}	;	Color ${}".format(pal_elem[0], pal_elem[1], pal_elem[2],
+                                                                          hex(i + 1)[2:]))
+        else:
+            palette_entry = (pal_elem[0] << 1) | (pal_elem[1] << 5) | (pal_elem[2] << 9)  # ----bbb-ggg-rrr-
+            out_file.write("	dc.w	${}	;	Color ${}".format(hex(palette_entry)[2:].zfill(4),
+                                                                  hex(i + 1)[2:]))
+        out_file.write(newline)
+
+    return color_remap
 
 
 def export_macro(out_file, newline):
@@ -184,7 +203,7 @@ def export_macro(out_file, newline):
     out_file.write(";	COLRW	2,3,4")
 
 
-def export_sega_tile(out_file, tile, start_x, start_y, has_alpha, tile_name, newline):
+def export_sega_tile(out_file, tile, start_x, start_y, has_alpha, color_remap, tile_name, newline):
     """
     Export one Sega Genesis tile (8x8 pixels), NOT Gimp tile (64x64 pixels).
     Note that
@@ -204,8 +223,11 @@ def export_sega_tile(out_file, tile, start_x, start_y, has_alpha, tile_name, new
                 # Images w/o alpha channel give you just one byte per pixel - color index
                 color_idx = tile[x, y]
                 is_opaque = True
+            color_idx = ord(color_idx)  # byte to int
+            if color_idx in color_remap:  # Merge those pesky duplicated colors!
+                color_idx = color_remap[color_idx]
             if is_opaque:  # Transparent pixel?
-                long_word |= (ord(color_idx) + 1) << shift_left_by  # + 1 because color 0 is always transparent
+                long_word |= (color_idx + 1) << shift_left_by  # + 1 because color 0 is always transparent
             # If the pixel IS transparent, do nothing, as transparent color in all Sega palettes is color 0
             shift_left_by -= 4
         #
@@ -226,12 +248,13 @@ register("file-asm-save",
          "Your image must be in indexed format and have not more than 15 colors (may have transparency).",
          "Alexei Kireev",
          "Copyright 2016 Alexei Kireev",
-         "2016-09-29",
+         "2016-10-08",
          "<Save>/Asm68k files",
          "*",  # All image types, including RGB and grayscale - we tell the user what they have to do to convert the image to indexed
          [
              (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # I don't know why, but the first parameter is ignored
              (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # So I have added the first parameter to actually be able to use this one
+             (PF_BOOL, "merge_dup_colors", "Merge duplicated colors:", True),
              (PF_RADIO, "tile_export_order", "Tile export order:", "col", (("Column by column", "col"), ("Row by row", "row")))
          ],
          [],
