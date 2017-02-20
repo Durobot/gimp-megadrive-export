@@ -58,7 +58,7 @@ import platform
 from gimpfu import *
 
 
-def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_macro, merge_dup_colors, tile_export_order):
+def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_macro, merge_dup_colors, tile_export_order, endline_type):
     gimp_tile_width = gimp.tile_width()
     if gimp_tile_width % 8 != 0 or gimp_tile_width <= 0:
         gimp.pdb.gimp_message("GIMP reports tile width = {}, which is not a multiple of 8.\n"
@@ -89,15 +89,22 @@ def export_to_asm(image, drawable, filename, rawfilename, dummy1, use_palette_ma
         message += "Image height ({}) is not a multiple of 8. " \
                    "Because of that, {} pixel rows weren't exported.".format(drawable.height, drawable.height % 8)
 
-    # Platform-specific EOL bytes (<CR><LF> for Windows, <LF> for others, like Linux or OS X)
-    if platform.system().upper().startswith("WINDOWS"):
+    # Platform-specific EOL bytes (<CR><LF> (10, 13) for Windows, <LF> for others, like Linux or OS X)
+    if endline_type == "os":
+        if platform.system().upper().startswith("WINDOWS"):
+            newline = "\r\n"
+        else:
+            newline = "\n"
+    elif endline_type == "crlf":
         newline = "\r\n"
     else:
         newline = "\n"
 
     # -----------------------------------------
 
-    out_file = open(filename, "w")
+    # Binary mode doesn't do this processing:
+    # [open() in text mode]"..may convert '\n' characters to a platform-specific representation on writing and back on reading"
+    out_file = open(filename, "wb")
     color_remap = export_palette(out_file, colmap, use_palette_macro, merge_dup_colors, newline)
     out_file.write(newline)
 
@@ -188,7 +195,7 @@ def export_macro(out_file, newline):
     out_file.write("*            it unique in each macro expansion" + newline)
     out_file.write("* ifne 	  ; print error message" + newline + newline)
 
-    out_file.write("; Pack RGB data like so: ----bbb-ggg-rrr-" + newline)
+    out_file.write("; Pack RGB data like this: ----bbb-ggg-rrr-" + newline)
     out_file.write("COLRW	MACRO		; Define word constant, representing a palette color entry (R, G, B must be within 0-7 range)" + newline)
     out_file.write("	IFNE narg-3		; narg minus 3 != 0" + newline)
     out_file.write("	FAIL COLRW needs three arguments:  COLRW R,G,B" + newline)
@@ -248,14 +255,15 @@ register("file-asm-save",
          "Your image must be in indexed format and have not more than 15 colors (may have transparency).",
          "Alexei Kireev",
          "Copyright 2016 Alexei Kireev",
-         "2016-10-08",
+         "2017-02-20",
          "<Save>/Asm68k files",
          "*",  # All image types, including RGB and grayscale - we tell the user what they have to do to convert the image to indexed
          [
              (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # I don't know why, but the first parameter is ignored
              (PF_BOOL, "use_palette_macro", "Export and use COLRW macro:", True),  # So I have added the first parameter to actually be able to use this one
              (PF_BOOL, "merge_dup_colors", "Merge duplicated colors:", True),
-             (PF_RADIO, "tile_export_order", "Tile export order:", "col", (("Column by column", "col"), ("Row by row", "row")))
+             (PF_RADIO, "tile_export_order", "Tile export order:", "col", (("Column by column", "col"), ("Row by row", "row"))),
+             (PF_RADIO, "endline_type", "New line:", "os", (("OS default", "os"), ("CR+LF (Windows)", "crlf"), ("LF (Linux / Mac)", "lf")))
          ],
          [],
          export_to_asm,
