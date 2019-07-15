@@ -9,7 +9,7 @@ as 8x8 tiles for Sega Genesis/Megadrive as asm68k source files.
 ### Installation
 
  - Copy **gimp_megadrive_export.py** to your Gimp plugins folder.  To find out
- its location, run Gimp and go to ``Edit > Preferences > Folders > Plug-ins``.
+ its location, run Gimp and go to ``Edit > Preferences > Folders > Plug-ins``
 
 
  - (Skip if you're using Windows) Change file permissions by adding executable bit: ``chmod +x gimp_megadrive_export.py``
